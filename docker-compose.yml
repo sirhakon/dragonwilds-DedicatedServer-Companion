@@ -1,0 +1,17 @@
+services:
+  runescape-companion:
+    container_name: runescape-companion
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      CONTAINER: runescape
+      SAVE_PATH: /savegames
+      MAX_PLAYERS: "6"
+      PORT: "9876"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /docker/runescape/RSDragonwilds/Saved/SaveGames:/savegames:ro
+    ports:
+      - "9876:9876"
+    restart: unless-stopped
