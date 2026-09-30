@@ -32,7 +32,6 @@ def parse_line(line):
     if removed:
         account = removed.group(1)
         name = removed.group(2)
-
         remove_player(account, name)
         player_leave(account)
         log_event(f"{name} left")
@@ -43,27 +42,18 @@ def parse_line(line):
         update_field("world", world.group(1))
         return
 
-    version_patterns = [
-        r"version[:= ]+([0-9A-Za-z\.\-_]+)",
-        r"build[:= ]+([0-9A-Za-z\.\-_]+)",
-        r"server version[:= ]+([0-9A-Za-z\.\-_]+)"
-    ]
-
-    for pattern in version_patterns:
-        match = re.search(pattern, line, re.IGNORECASE)
-        if match:
-            update_field("version", match.group(1))
-            return
-
+    project_version = re.search(r"LogNetVersion:\s*Set ProjectVersion\s+to\s+([0-9]+(?:\.[0-9]+)*)\.", line, )
+    if project_version:
+        update_field("version", project_version.group(1))
+        print(f"Detected ProjectVersion: {project_version.group(1)}", flush=True)
+        return
 
 def load_recent_logs():
     cmd = ["docker", "logs", "--tail", config.LOG_LINES_ON_START, config.CONTAINER]
     result = subprocess.run(cmd, capture_output=True, text=True)
-
     logs = result.stdout + "\n" + result.stderr
     for line in logs.splitlines():
         parse_line(line)
-
 
 def follow_logs_forever():
     was_running = False
@@ -104,8 +94,32 @@ def follow_logs_forever():
         add_event("Log stream reconnecting")
         time.sleep(5)
 
+def capture_startup_version():
+    """Read full startup logs to find ProjectVersion"""
+    try:
+        result = subprocess.run(
+            ["docker", "logs", config.CONTAINER],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        logs = result.stdout + "\n" + result.stderr
+
+        for line in logs.splitlines():
+            project_version = re.search(
+                r"LogNetVersion:\s*Set ProjectVersion\s+to\s+([0-9]+(?:\.[0-9]+)*)\.",
+                line,
+            )
+            if project_version:
+                version = project_version.group(1)
+                update_field("version", version)
+                print(f"Captured startup ProjectVersion: {version}", flush=True)
+                return
+    except Exception as e:
+        print(f"Error capturing startup version: {e}", flush=True)
 
 def start_monitor():
+    capture_startup_version()  # <-- Find ProjectVersion from full startup logs
     if container_running():
         load_recent_logs()
 
