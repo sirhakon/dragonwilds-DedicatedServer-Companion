@@ -44,33 +44,43 @@ http://YOUR_DOCKER_HOST_IP:9876
 ```
 # Docker Installation (Recommended)
 
-Clone the repository:
-
-```bash
-git clone https://github.com/xdrushxd/dragonwilds-DedicatedServer-Companion.git
-cd dragonwilds-DedicatedServer-Companion
-```
-
-Edit `docker-compose.yml` and configure the following values:
-
-```yaml
+```Docker Compose
 services:
   dragonwilds-companion:
-    build: .
     container_name: dragonwilds-companion
     restart: unless-stopped
-
-    ports:
-      - "9876:9876"
-
+    image: bulkmass/runescape-companion:1.0.7
+   environment:
+      TZ: "Your Timezone"
+      CONTAINER: "Name of your dragonwilds container"
+      SAVE_PATH: /savegames
+      PORT: "9876"
+      MAX_PLAYERS: 6
+      MYSQL_HOST: dragonwilds-mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: dragonwilds
+      MYSQL_USER: dragonwilds
+      MYSQL_PASSWORD: "Password from dragonwilds-mysql"
+    depends_on:
+      - runescape-mysql
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /opt/dragonwilds/server-files/RSDragonwilds/Saved/SaveGames:/savegames:ro
+      - /docker/runescape/RSDragonwilds/Saved/SaveGames:/savegames:ro
+    ports:
+      - "9876:9876"
+    restart: unless-stopped
 
+  dragonwilds-mysql:
+    container_name: dragonwilds-mysql
+    image: mariadb:11
     environment:
-      CONTAINER: runescape-dragonwilds
-      SAVE_PATH: /savegames
-      MAX_PLAYERS: 6
+      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_DATABASE: dragonwilds
+      MYSQL_USER: dragonwilds
+      MYSQL_PASSWORD: "Set a password"
+    volumes:
+      - /docker/runescape-mysql:/var/lib/mysql
+    restart: unless-stopped
 ```
 
 Start the companion:
@@ -92,48 +102,6 @@ http://YOUR_DOCKER_HOST_IP:9876/status
 ```
 
 ---
-
-
-## Manual Installation
-
-```bash
-cd /opt
-git clone https://github.com/xdrushxd/dragonwilds-DedicatedServer-Companion.git
-cd dragonwilds-DedicatedServer-Companion
-apt update
-apt install -y python3-flask
-```
-
-## Configuration
-
-Edit `app.py` and set your paths:
-
-```python
-CONTAINER = "runescape-dragonwilds"
-SAVE_PATH = "/opt/dragonwilds/server-files/RSDragonwilds/Saved/SaveGames"
-MAX_PLAYERS = 6
-```
-
-## Run manually
-
-```bash
-python3 app.py
-```
-
-Open:
-
-```text
-http://YOUR_DOCKER_HOST_IP:9876/status
-```
-
-## Run as a service
-
-```bash
-cp systemd/dragonwilds-companion.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now dragonwilds-companion
-systemctl status dragonwilds-companion
-```
 
 ## Homepage Integration
 
@@ -162,8 +130,6 @@ Example widget:
 
 ## Requirements
 
-- Python 3
-- Flask
 - Docker
 - RuneScape: Dragonwilds dedicated server running in Docker
 
@@ -175,7 +141,7 @@ Example widget:
 - [x] Docker stats
 - [ ] Discord webhook
 - [ ] Web dashboard
-- [ ] Docker image
+- [X] Docker image
 - [ ] Backup monitoring
 - [ ] Steam update checker
 
