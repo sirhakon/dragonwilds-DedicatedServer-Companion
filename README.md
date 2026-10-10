@@ -49,7 +49,7 @@ services:
   dragonwilds-companion:
     container_name: dragonwilds-companion
     restart: unless-stopped
-    image: bulkmass/runescape-companion:1.0.7
+    image: bulkmass/runescape-companion:latest
    environment:
       TZ: "Your Timezone"
       CONTAINER: "Name of your dragonwilds container"
