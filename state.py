@@ -23,7 +23,8 @@ state = {
 def add_event(message):
     with _lock:
         state["events"].insert(0, {
-            "timestamp": datetime.now().strftime("%I:%M:%S %p"),
+            "timestamp": datetime.now().strftime("%m/%d/%Y %I:%M:%S %p"),
+           #  "timestamp": datetime.now().strftime("%I:%M:%S %p"),
            # "timestamp": datetime.now().strftime("%H:%M:%S"),
             "message": message
         })
