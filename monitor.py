@@ -7,43 +7,17 @@ from state import set_player, remove_player, update_field, add_event, clear_play
 from database import log_event, player_join, player_leave
 
 
-# Match the exact game server version line we expect from Docker logs.
-VERSION_RE = re.compile(
-    r"LogNetVersion:\s*Set ProjectVersion\s+to\s+([0-9]+(?:\.[0-9]+)*)\.",
-)
-
-
-def sanitize_log_text(data):
-    if data is None:
-        return ""
-
-    # Docker logs can include embedded NUL bytes from binary output.
-    if isinstance(data, bytes):
-        data = data.replace(b"\x00", b"")
-        data = data.decode("utf-8", errors="replace")
-
-    # Strip ANSI escape sequences commonly added by terminal output.
-    data = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", data)
-    return data
-
-
 def container_running():
     result = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", config.CONTAINER],
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        text=True
     )
 
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
 def parse_line(line):
-    line = sanitize_log_text(line)
-    if not line:
-        return
-
     added = re.search(r"Player ADDED to session \[(.*?)\]-\[(.*?)\]", line)
     if added:
         account = added.group(1)
@@ -68,30 +42,18 @@ def parse_line(line):
         update_field("world", world.group(1))
         return
 
-    project_version = VERSION_RE.search(line)
+    project_version = re.search(r"LogNetVersion:\s*Set ProjectVersion\s+to\s+([0-9]+(?:\.[0-9]+)*)\.", line, )
     if project_version:
-        version = project_version.group(1)
-        update_field("version", version)
-        print(f"Detected ProjectVersion: {version}", flush=True)
+        update_field("version", project_version.group(1))
+        print(f"Detected ProjectVersion: {project_version.group(1)}", flush=True)
         return
 
-
 def load_recent_logs():
-    # Read recent log history on startup, then parse each line.
-    cmd = ["docker", "logs", "--tail", str(config.LOG_LINES_ON_START), config.CONTAINER]
-    result = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-    logs = sanitize_log_text(result.stdout)
+    cmd = ["docker", "logs", "--tail", config.LOG_LINES_ON_START, config.CONTAINER]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    logs = result.stdout + "\n" + result.stderr
     for line in logs.splitlines():
         parse_line(line)
-
 
 def follow_logs_forever():
     was_running = False
@@ -115,19 +77,16 @@ def follow_logs_forever():
             update_field("status", "online")
             was_running = True
 
-        # Stream live logs and parse them continuously.
         process = subprocess.Popen(
             ["docker", "logs", "-f", "--tail", "0", config.CONTAINER],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+            text=True
         )
 
         try:
-            for raw_line in process.stdout:
-                parse_line(raw_line)
+            for line in process.stdout:
+                parse_line(line)
         except Exception as e:
             add_event(f"Log watcher error: {e}")
 
@@ -135,23 +94,22 @@ def follow_logs_forever():
         add_event("Log stream reconnecting")
         time.sleep(5)
 
-
 def capture_startup_version():
     """Read full startup logs to find ProjectVersion"""
     try:
         result = subprocess.run(
             ["docker", "logs", config.CONTAINER],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10,
+            timeout=10
         )
-        logs = sanitize_log_text(result.stdout)
+        logs = result.stdout + "\n" + result.stderr
 
         for line in logs.splitlines():
-            project_version = VERSION_RE.search(line)
+            project_version = re.search(
+                r"LogNetVersion:\s*Set ProjectVersion\s+to\s+([0-9]+(?:\.[0-9]+)*)\.",
+                line,
+            )
             if project_version:
                 version = project_version.group(1)
                 update_field("version", version)
@@ -160,15 +118,10 @@ def capture_startup_version():
     except Exception as e:
         print(f"Error capturing startup version: {e}", flush=True)
 
-
 def start_monitor():
-    # Try to discover the version before live monitoring starts.
-    capture_startup_version()
-
-    # Load recent logs if the container is already running.
+    capture_startup_version()  # <-- Find ProjectVersion from full startup logs
     if container_running():
         load_recent_logs()
 
-    # Start the background log follower.
     thread = threading.Thread(target=follow_logs_forever, daemon=True)
     thread.start()
