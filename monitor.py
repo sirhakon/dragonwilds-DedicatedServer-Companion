@@ -81,12 +81,14 @@ def load_recent_logs():
     cmd = ["docker", "logs", "--tail", str(config.LOG_LINES_ON_START), config.CONTAINER]
     result = subprocess.run(
         cmd,
-        capture_output=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
-    logs = sanitize_log_text((result.stdout or b"") + (result.stderr or b""))
+    logs = sanitize_log_text(result.stdout)
     for line in logs.splitlines():
         parse_line(line)
 
@@ -118,6 +120,9 @@ def follow_logs_forever():
             ["docker", "logs", "-f", "--tail", "0", config.CONTAINER],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
         try:
@@ -136,12 +141,14 @@ def capture_startup_version():
     try:
         result = subprocess.run(
             ["docker", "logs", config.CONTAINER],
-            capture_output=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
         )
-        logs = sanitize_log_text((result.stdout or b"") + (result.stderr or b""))
+        logs = sanitize_log_text(result.stdout)
 
         for line in logs.splitlines():
             project_version = VERSION_RE.search(line)
