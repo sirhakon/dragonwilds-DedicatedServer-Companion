@@ -49,23 +49,23 @@ services:
   dragonwilds-companion:
     container_name: dragonwilds-companion
     restart: unless-stopped
-    image: bulkmass/runescape-companion:latest
+    image: bulkmass/dragonwilds-companion:latest
    environment:
       TZ: "Your Timezone"
       CONTAINER: "Name of your dragonwilds container"
       SAVE_PATH: /savegames
       PORT: "9876"
       MAX_PLAYERS: 6
-      MYSQL_HOST: dragonwilds-mysql
+      MYSQL_HOST: dragonwilds-mysql # match sql container_name
       MYSQL_PORT: "3306"
       MYSQL_DATABASE: dragonwilds
       MYSQL_USER: dragonwilds
       MYSQL_PASSWORD: "Password from dragonwilds-mysql"
     depends_on:
-      - runescape-mysql
+      - dragonwilds-mysql
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /docker/runescape/RSDragonwilds/Saved/SaveGames:/savegames:ro
+      - /docker/dragonwilds/RSDragonwilds/Saved/SaveGames:/savegames:ro # or Whatever location you use
     ports:
       - "9876:9876"
     restart: unless-stopped
@@ -74,12 +74,12 @@ services:
     container_name: dragonwilds-mysql
     image: mariadb:11
     environment:
-      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_ROOT_PASSWORD: "Set a Root Password"
       MYSQL_DATABASE: dragonwilds
       MYSQL_USER: dragonwilds
       MYSQL_PASSWORD: "Set a password"
     volumes:
-      - /docker/runescape-mysql:/var/lib/mysql
+      - /docker/dragonwilds-mysql:/var/lib/mysql
     restart: unless-stopped
 ```
 
@@ -112,7 +112,7 @@ Example widget:
     icon: runescape
     description: RuneScape Dragonwilds
     server: docker
-    container: runescape-dragonwilds
+    container: dragonwilds
     showstats: true
     widget:
       type: customapi
